@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
 import { signOut, useSession } from 'next-auth/react'
 import ProfileAvatar from './ProfileAvatar'
 import { cn } from '@/lib/utils'
@@ -55,27 +54,10 @@ const navItems = [
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname()
   const { data: session } = useSession()
-  const [displayName, setDisplayName] = useState('')
-  const [displayPhoto, setDisplayPhoto] = useState<string | null>(null)
 
-  const loadProfile = () => {
-    const storedName = localStorage.getItem('userName')
-    const storedPhoto = localStorage.getItem('userPhoto')
-    setDisplayName(storedName || session?.user?.name || '')
-    setDisplayPhoto(storedPhoto || session?.user?.image || null)
-  }
-
-  useEffect(() => {
-    loadProfile()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session])
-
-  useEffect(() => {
-    const handler = () => loadProfile()
-    window.addEventListener('profileUpdated', handler)
-    return () => window.removeEventListener('profileUpdated', handler)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session])
+  const displayName = session?.user?.name || 'My Dashboard'
+  const displayPhoto = session?.user?.image || null
+  const displayPosition = session?.user?.position || 'Task Manager'
 
   return (
     <>
@@ -102,17 +84,17 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           <Link href="/" className="flex items-center gap-3 group" onClick={onClose}>
             <div className="group-hover:scale-105 transition-transform flex-shrink-0">
               <ProfileAvatar
-                name={displayName || session?.user?.name || 'Hanoush'}
+                name={displayName}
                 photoUrl={displayPhoto}
                 size="md"
               />
             </div>
-            <div>
-              <span className="font-playfair font-bold text-lg text-[#3D0026] dark:text-pink-50 block leading-tight">
-                Hanoush
+            <div className="min-w-0">
+              <span className="font-playfair font-bold text-lg text-[#3D0026] dark:text-pink-50 block leading-tight truncate">
+                {displayName}
               </span>
-              <span className="text-[10px] text-[#C2185B]/70 dark:text-[#E91E8C]/70 font-medium tracking-widest uppercase">
-                Content Creator
+              <span className="text-[10px] text-[#C2185B]/70 dark:text-[#E91E8C]/70 font-medium tracking-widest uppercase truncate block">
+                {displayPosition}
               </span>
             </div>
           </Link>

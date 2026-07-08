@@ -4,9 +4,17 @@ import { signIn, useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
+type Mode = 'login' | 'signup'
+
 export default function LoginPage() {
-  const { data: session, status } = useSession()
+  const { status } = useSession()
   const router = useRouter()
+
+  const [mode, setMode] = useState<Mode>('login')
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -15,9 +23,64 @@ export default function LoginPage() {
     }
   }, [status, router])
 
-  const handleGoogleSignIn = async () => {
+  const switchMode = (next: Mode) => {
+    setMode(next)
+    setError('')
+    setPassword('')
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+
+    const trimmedName = name.trim()
+    if (trimmedName.length < 2) {
+      setError('Name must be at least 2 characters')
+      return
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters')
+      return
+    }
+
     setLoading(true)
-    await signIn('google', { callbackUrl: '/' })
+    try {
+      if (mode === 'signup') {
+        if (!email.trim()) {
+          setError('Please enter your email')
+          setLoading(false)
+          return
+        }
+        const res = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: trimmedName, email: email.trim(), password }),
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          setError(data.error ?? 'Could not create account')
+          setLoading(false)
+          return
+        }
+      }
+
+      const result = await signIn('credentials', {
+        redirect: false,
+        name: trimmedName,
+        password,
+      })
+
+      if (result?.error) {
+        setError(mode === 'signup' ? 'Account created, but sign in failed. Try logging in.' : 'Invalid name or password')
+        setLoading(false)
+        return
+      }
+
+      router.replace('/')
+    } catch {
+      setError('Something went wrong. Please try again.')
+      setLoading(false)
+    }
   }
 
   if (status === 'loading' || status === 'authenticated') {
@@ -37,53 +100,93 @@ export default function LoginPage() {
       </div>
 
       <div className="relative bg-white rounded-3xl p-10 shadow-xl border border-pink-100 w-full max-w-sm text-center animate-scale-in">
-        {/* Avatar replacing star icon */}
-        <div className="w-20 h-20 mx-auto mb-5 rounded-full overflow-hidden shadow-lg ring-4 ring-pink-100">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/avatar.jpg"
-            alt="Hanoush"
-            className="w-full h-full object-cover"
-          />
+        {/* Neutral sparkle badge (replaces the personal photo) */}
+        <div className="w-20 h-20 mx-auto mb-5 rounded-full flex items-center justify-center shadow-lg ring-4 ring-pink-100 bg-gradient-to-br from-[#FFB6C1] to-[#C2185B]">
+          <span className="text-4xl text-white">✦</span>
         </div>
 
-        <h1 className="font-playfair text-3xl font-bold text-[#3D0026] mb-1">Hanoush</h1>
+        <h1 className="font-playfair text-3xl font-bold text-[#3D0026] mb-1">
+          {mode === 'login' ? 'Welcome back' : 'Create account'}
+        </h1>
         <p className="text-sm text-[#C2185B]/70 font-medium mb-8 tracking-wide">
-          Content Creator Dashboard
+          {mode === 'login' ? 'Sign in to your task manager' : 'Set up your personal task manager'}
         </p>
 
-        <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-          Sign in to access your personal task manager. Your data stays private and syncs across all your devices.
-        </p>
+        <form onSubmit={handleSubmit} className="space-y-3 text-left">
+          <div>
+            <label className="block text-xs font-medium text-[#3D0026] mb-1.5">Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your name"
+              autoComplete="username"
+              maxLength={50}
+              className="w-full px-4 py-3 rounded-2xl border-2 border-[#FFB6C1] focus:border-[#C2185B] focus:outline-none text-[#3D0026] placeholder:text-gray-300 transition-colors"
+            />
+          </div>
 
-        <button
-          onClick={handleGoogleSignIn}
-          disabled={loading}
-          className="w-full flex items-center justify-center gap-3 px-6 py-3.5 bg-white border-2 border-[#FFB6C1] hover:border-[#C2185B] hover:bg-[#FFF0F3] text-[#3D0026] font-semibold rounded-2xl transition-all duration-200 shadow-sm hover:shadow-md active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {loading ? (
-            <div className="w-5 h-5 rounded-full border-2 border-[#C2185B] border-t-transparent animate-spin" />
-          ) : (
-            <GoogleIcon />
+          {mode === 'signup' && (
+            <div>
+              <label className="block text-xs font-medium text-[#3D0026] mb-1.5">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                autoComplete="email"
+                className="w-full px-4 py-3 rounded-2xl border-2 border-[#FFB6C1] focus:border-[#C2185B] focus:outline-none text-[#3D0026] placeholder:text-gray-300 transition-colors"
+              />
+            </div>
           )}
-          {loading ? 'Signing in...' : 'Continue with Google'}
-        </button>
+
+          <div>
+            <label className="block text-xs font-medium text-[#3D0026] mb-1.5">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              className="w-full px-4 py-3 rounded-2xl border-2 border-[#FFB6C1] focus:border-[#C2185B] focus:outline-none text-[#3D0026] placeholder:text-gray-300 transition-colors"
+            />
+          </div>
+
+          {error && <p className="text-xs text-rose-600 px-1">{error}</p>}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-[#C2185B] hover:bg-[#880E4F] text-white font-semibold rounded-2xl transition-all duration-200 shadow-sm hover:shadow-md active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed mt-1"
+          >
+            {loading && (
+              <div className="w-5 h-5 rounded-full border-2 border-white/70 border-t-transparent animate-spin" />
+            )}
+            {loading
+              ? mode === 'login'
+                ? 'Signing in...'
+                : 'Creating account...'
+              : mode === 'login'
+                ? 'Sign in'
+                : 'Create account'}
+          </button>
+        </form>
+
+        <p className="text-sm text-gray-500 mt-6">
+          {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
+          <button
+            type="button"
+            onClick={() => switchMode(mode === 'login' ? 'signup' : 'login')}
+            className="text-[#C2185B] font-semibold hover:text-[#880E4F] transition-colors"
+          >
+            {mode === 'login' ? 'Create one' : 'Sign in'}
+          </button>
+        </p>
 
         <p className="text-xs text-gray-400 mt-8">
           Your tasks, beautifully organized ✨
         </p>
       </div>
     </div>
-  )
-}
-
-function GoogleIcon() {
-  return (
-    <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
-      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-    </svg>
   )
 }

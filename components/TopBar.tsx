@@ -13,35 +13,16 @@ interface TopBarProps {
 
 export default function TopBar({ onMenuClick }: TopBarProps) {
   const { data: session } = useSession()
-  const [displayName, setDisplayName] = useState('')
-  const [displayPhoto, setDisplayPhoto] = useState<string | null>(null)
   const [greeting, setGreeting] = useState('')
   const [dateStr, setDateStr] = useState('')
 
-  const loadProfile = () => {
-    // localStorage override takes priority, then fall back to Google profile
-    const storedName = localStorage.getItem('userName')
-    const storedPhoto = localStorage.getItem('userPhoto')
-    setDisplayName(storedName || session?.user?.name || 'there')
-    setDisplayPhoto(storedPhoto || session?.user?.image || null)
-  }
+  const displayName = session?.user?.name || 'there'
+  const displayPhoto = session?.user?.image || null
 
   useEffect(() => {
     setGreeting(getGreeting())
     setDateStr(getTodayFormatted())
   }, [])
-
-  useEffect(() => {
-    loadProfile()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session])
-
-  useEffect(() => {
-    const handler = () => loadProfile()
-    window.addEventListener('profileUpdated', handler)
-    return () => window.removeEventListener('profileUpdated', handler)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session])
 
   return (
     <header className="sticky top-0 z-10 bg-white/90 dark:bg-[#2d0020]/90 backdrop-blur-md border-b border-pink-100 dark:border-[#E91E8C]/15 px-4 md:px-6 py-3 shadow-sm">

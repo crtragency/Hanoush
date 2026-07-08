@@ -1,12 +1,18 @@
 'use client'
 
 import { useState } from 'react'
+import { useSession } from 'next-auth/react'
 import Sidebar from './Sidebar'
 import TopBar from './TopBar'
 import MotivationalToasts from './MotivationalToasts'
+import ProfileSetupPrompt from './ProfileSetupPrompt'
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { data: session, status } = useSession()
+
+  // First-run: a signed-in user who hasn't set their position yet.
+  const needsSetup = status === 'authenticated' && !session?.user?.position
 
   return (
     <div className="flex h-screen overflow-hidden bg-cream dark:bg-[#1a0011]">
@@ -20,6 +26,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <MotivationalToasts />
+
+      {needsSetup && <ProfileSetupPrompt />}
     </div>
   )
 }

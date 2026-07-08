@@ -9,37 +9,42 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 
-const nameSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters').max(50),
+const positionSchema = z.object({
+  position: z.string().min(2, 'Position must be at least 2 characters').max(100),
 })
-type NameForm = z.infer<typeof nameSchema>
+type PositionForm = z.infer<typeof positionSchema>
 
 export default function SettingsPage() {
-  const { data: session } = useSession()
-  const [customName, setCustomName] = useState('')
-  const [customPhoto, setCustomPhoto] = useState<string | null>(null)
+  const { data: session, update } = useSession()
   const [uploading, setUploading] = useState(false)
   const [preview, setPreview] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const { register, handleSubmit, formState: { errors, isDirty }, reset } = useForm<NameForm>({
-    resolver: zodResolver(nameSchema),
+  const { register, handleSubmit, formState: { errors, isDirty }, reset } = useForm<PositionForm>({
+    resolver: zodResolver(positionSchema),
   })
 
   useEffect(() => {
-    const storedName = localStorage.getItem('userName') || ''
-    const storedPhoto = localStorage.getItem('userPhoto') || null
-    setCustomName(storedName)
-    setCustomPhoto(storedPhoto)
-    reset({ name: storedName || session?.user?.name || '' })
+    reset({ position: session?.user?.position || '' })
   }, [session, reset])
 
-  const handleNameSave = (data: NameForm) => {
-    localStorage.setItem('userName', data.name)
-    setCustomName(data.name)
-    reset({ name: data.name })
-    window.dispatchEvent(new Event('profileUpdated'))
-    toast.success('Display name updated!')
+  const handlePositionSave = async (data: PositionForm) => {
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ position: data.position }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error ?? 'Could not update position')
+      }
+      await update()
+      reset({ position: data.position })
+      toast.success('Position updated!')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not update position')
+    }
   }
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -69,10 +74,18 @@ export default function SettingsPage() {
         throw new Error(err.error ?? 'Upload failed')
       }
       const { url } = await res.json()
-      setCustomPhoto(url)
+
+      const saveRes = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: url }),
+      })
+      if (!saveRes.ok) {
+        const err = await saveRes.json()
+        throw new Error(err.error ?? 'Could not save photo')
+      }
+      await update()
       setPreview(null)
-      localStorage.setItem('userPhoto', url)
-      window.dispatchEvent(new Event('profileUpdated'))
       toast.success('Profile photo updated!')
     } catch (err) {
       setPreview(null)
@@ -83,17 +96,30 @@ export default function SettingsPage() {
     }
   }
 
-  const handleRemovePhoto = () => {
-    setCustomPhoto(null)
-    setPreview(null)
-    localStorage.removeItem('userPhoto')
-    window.dispatchEvent(new Event('profileUpdated'))
-    toast.success('Custom photo removed')
+  const handleRemovePhoto = async () => {
+    setUploading(true)
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: null }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error ?? 'Could not remove photo')
+      }
+      await update()
+      setPreview(null)
+      toast.success('Profile photo removed')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not remove photo')
+    } finally {
+      setUploading(false)
+    }
   }
 
-  // What the topbar will show: custom > google
-  const displayName = customName || session?.user?.name || 'User'
-  const currentPhoto = preview || customPhoto || session?.user?.image || null
+  const displayName = session?.user?.name || 'User'
+  const currentPhoto = preview || session?.user?.image || null
 
   return (
     <AppShell>
@@ -103,24 +129,18 @@ export default function SettingsPage() {
           <p className="text-sm text-[#C2185B]/60 dark:text-pink-400/60 mt-0.5">Manage your profile and preferences</p>
         </div>
 
-        {/* Google account info */}
+        {/* Account info */}
         {session?.user && (
           <div className="bg-white dark:bg-[#3d0030] rounded-2xl border border-pink-100 dark:border-[#E91E8C]/15 p-5 card-shadow">
             <h2 className="font-playfair text-base font-semibold text-[#3D0026] dark:text-pink-50 mb-4 flex items-center gap-2">
-              <span className="text-base">🔗</span> Google Account
+              <span className="text-base">👤</span> Account
             </h2>
             <div className="flex items-center gap-3">
-              {session.user.image && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={session.user.image} alt="" className="w-10 h-10 rounded-full ring-2 ring-pink-100 dark:ring-[#E91E8C]/20" />
-              )}
+              <ProfileAvatar name={displayName} photoUrl={session.user.image} size="md" />
               <div>
                 <p className="text-sm font-semibold text-[#3D0026] dark:text-pink-100">{session.user.name}</p>
                 <p className="text-xs text-gray-400 dark:text-pink-400/50">{session.user.email}</p>
               </div>
-              <span className="ml-auto text-xs bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border border-green-100 dark:border-green-700/30 px-2.5 py-1 rounded-full font-medium">
-                ✓ Connected
-              </span>
             </div>
           </div>
         )}
@@ -131,7 +151,7 @@ export default function SettingsPage() {
             <span>📷</span> Profile Photo
           </h2>
           <p className="text-xs text-gray-400 dark:text-pink-400/50 mb-4">
-            Upload a custom photo to override your Google profile picture across the app.
+            Upload a photo shown across your dashboard.
           </p>
           <div className="flex items-center gap-5">
             <div className="relative">
@@ -150,11 +170,11 @@ export default function SettingsPage() {
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="btn-primary text-sm py-2 px-4">
-                  {customPhoto ? 'Change photo' : 'Upload photo'}
+                  {session?.user?.image ? 'Change photo' : 'Upload photo'}
                 </button>
-                {customPhoto && (
+                {session?.user?.image && (
                   <button onClick={handleRemovePhoto} disabled={uploading} className="btn-secondary text-sm py-2 px-4">
-                    Use Google photo
+                    Remove photo
                   </button>
                 )}
               </div>
@@ -164,43 +184,26 @@ export default function SettingsPage() {
           <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileSelect} />
         </div>
 
-        {/* Display Name */}
+        {/* Position */}
         <div className="bg-white dark:bg-[#3d0030] rounded-2xl border border-pink-100 dark:border-[#E91E8C]/15 p-5 card-shadow">
           <h2 className="font-playfair text-base font-semibold text-[#3D0026] dark:text-pink-50 mb-4 flex items-center gap-2">
-            <span>✏️</span> Display Name
+            <span>💼</span> Position
           </h2>
           <p className="text-xs text-gray-400 dark:text-pink-400/50 mb-4">
-            Override your Google name with a custom display name shown in the greeting.
+            Your role or title, shown under your name in the sidebar.
           </p>
-          <form onSubmit={handleSubmit(handleNameSave)} className="space-y-3">
+          <form onSubmit={handleSubmit(handlePositionSave)} className="space-y-3">
             <div>
               <input
-                {...register('name')}
-                placeholder={session?.user?.name ?? 'Your display name'}
+                {...register('position')}
+                placeholder="e.g. Content Creator"
                 className="input-base max-w-sm"
               />
-              {errors.name && <p className="mt-1.5 text-xs text-red-500">{errors.name.message}</p>}
+              {errors.position && <p className="mt-1.5 text-xs text-red-500">{errors.position.message}</p>}
             </div>
-            <div className="flex gap-2">
-              <button type="submit" className="btn-primary" disabled={!isDirty}>
-                Save name
-              </button>
-              {customName && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    localStorage.removeItem('userName')
-                    setCustomName('')
-                    reset({ name: session?.user?.name ?? '' })
-                    window.dispatchEvent(new Event('profileUpdated'))
-                    toast.success('Reset to Google name')
-                  }}
-                  className="btn-secondary"
-                >
-                  Reset to Google name
-                </button>
-              )}
-            </div>
+            <button type="submit" className="btn-primary" disabled={!isDirty}>
+              Save position
+            </button>
           </form>
         </div>
       </div>
