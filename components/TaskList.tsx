@@ -23,7 +23,6 @@ import { isOverdue, isTodayDate, isThisWeekDate } from '@/lib/utils'
 import TaskCard, { TaskCardSkeleton } from './TaskCard'
 import TaskFormModal from './TaskFormModal'
 import DeleteConfirmModal from './DeleteConfirmModal'
-import AISuggestModal from './AISuggestModal'
 
 interface TaskListProps {
   tasks: Task[]
@@ -42,7 +41,6 @@ export default function TaskList({
 }: TaskListProps) {
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [deletingTask, setDeletingTask] = useState<Task | null>(null)
-  const [aiTask, setAiTask] = useState<Task | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -215,7 +213,6 @@ export default function TaskList({
                 onToggle={handleToggle}
                 onEdit={setEditingTask}
                 onDelete={setDeletingTask}
-                onAISuggest={setAiTask}
                 onRemoveImage={handleRemoveImage}
               />
             ))}
@@ -240,7 +237,6 @@ export default function TaskList({
           loading={deleting}
         />
       )}
-      {aiTask && <AISuggestModal task={aiTask} onClose={() => setAiTask(null)} />}
     </>
   )
 }
