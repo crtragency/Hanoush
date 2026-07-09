@@ -17,9 +17,8 @@ const dmSans = DM_Sans({
 })
 
 export const metadata: Metadata = {
-  title: 'Hanoush — Content Creator Dashboard',
-  description: 'Your personal luxury task manager for content creators',
-  icons: { icon: '/icon.png' },
+  title: 'todolist',
+  description: 'Your personal task manager',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
