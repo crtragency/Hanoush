@@ -18,7 +18,7 @@ import {
 } from '@dnd-kit/sortable'
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import toast from 'react-hot-toast'
-import { Task, TaskFormData, FilterType } from '@/lib/types'
+import { Task, TaskFormData, FilterType, Project } from '@/lib/types'
 import { isOverdue, isTodayDate, isThisWeekDate } from '@/lib/utils'
 import TaskCard, { TaskCardSkeleton } from './TaskCard'
 import TaskFormModal from './TaskFormModal'
@@ -30,6 +30,7 @@ interface TaskListProps {
   filter?: FilterType
   searchQuery?: string
   onTasksChange: (tasks: Task[]) => void
+  projects?: Project[]
 }
 
 export default function TaskList({
@@ -38,6 +39,7 @@ export default function TaskList({
   filter = 'all',
   searchQuery = '',
   onTasksChange,
+  projects,
 }: TaskListProps) {
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [deletingTask, setDeletingTask] = useState<Task | null>(null)
@@ -227,6 +229,7 @@ export default function TaskList({
           onClose={() => setEditingTask(null)}
           onSubmit={handleEdit}
           loading={saving}
+          projects={projects}
         />
       )}
       {deletingTask && (
