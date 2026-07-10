@@ -11,6 +11,7 @@ const updateSchema = z.object({
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH']).optional(),
   completed: z.boolean().optional(),
   imageUrl: z.string().url().optional().nullable(),
+  projectId: z.string().optional().nullable(),
 })
 
 export async function PATCH(
@@ -34,6 +35,17 @@ export async function PATCH(
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
 
+    // When moving to another project, verify the target belongs to this user.
+    if (data.projectId) {
+      const owned = await prisma.project.findFirst({
+        where: { id: data.projectId, userId: session.user.id },
+        select: { id: true },
+      })
+      if (!owned) {
+        return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+      }
+    }
+
     const task = await prisma.task.update({
       where: { id: params.id },
       data: {
@@ -45,6 +57,7 @@ export async function PATCH(
         ...(data.priority !== undefined && { priority: data.priority }),
         ...(data.completed !== undefined && { completed: data.completed }),
         ...(data.imageUrl !== undefined && { imageUrl: data.imageUrl }),
+        ...(data.projectId !== undefined && { projectId: data.projectId }),
       },
     })
 

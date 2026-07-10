@@ -5,7 +5,7 @@ import AppShell from '@/components/AppShell'
 import TaskList from '@/components/TaskList'
 import TaskFormModal from '@/components/TaskFormModal'
 import DBErrorBanner from '@/components/DBErrorBanner'
-import { Task, TaskFormData, FilterType } from '@/lib/types'
+import { Task, TaskFormData, FilterType, Project } from '@/lib/types'
 import toast from 'react-hot-toast'
 import { cn } from '@/lib/utils'
 
@@ -25,6 +25,7 @@ export default function TasksPage() {
   const [addLoading, setAddLoading] = useState(false)
   const [filter, setFilter] = useState<FilterType>('all')
   const [search, setSearch] = useState('')
+  const [projects, setProjects] = useState<Project[]>([])
 
   const fetchTasks = useCallback(async () => {
     setDbError(null)
@@ -40,7 +41,17 @@ export default function TasksPage() {
     }
   }, [])
 
-  useEffect(() => { fetchTasks() }, [fetchTasks])
+  const fetchProjects = useCallback(async () => {
+    try {
+      const res = await fetch('/api/projects')
+      const data = await res.json()
+      if (res.ok) setProjects(data.projects)
+    } catch {
+      /* projects are optional here — ignore fetch failures */
+    }
+  }, [])
+
+  useEffect(() => { fetchTasks(); fetchProjects() }, [fetchTasks, fetchProjects])
 
   const handleAddTask = async (data: TaskFormData) => {
     setAddLoading(true)
@@ -146,7 +157,7 @@ export default function TasksPage() {
               </div>
 
               <div className="bg-white dark:bg-[#3d0030] rounded-2xl border border-pink-100 dark:border-[#E91E8C]/15 p-5 card-shadow">
-                <TaskList tasks={tasks} loading={loading} filter={filter} searchQuery={search} onTasksChange={setTasks} />
+                <TaskList tasks={tasks} loading={loading} filter={filter} searchQuery={search} onTasksChange={setTasks} projects={projects} />
               </div>
             </>
           )}
@@ -154,7 +165,7 @@ export default function TasksPage() {
       </AppShell>
 
       {showAddModal && (
-        <TaskFormModal mode="add" onClose={() => setShowAddModal(false)} onSubmit={handleAddTask} loading={addLoading} />
+        <TaskFormModal mode="add" onClose={() => setShowAddModal(false)} onSubmit={handleAddTask} loading={addLoading} projects={projects} />
       )}
     </>
   )

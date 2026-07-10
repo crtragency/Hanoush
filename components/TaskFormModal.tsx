@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Task, TaskFormData } from '@/lib/types'
+import { Task, TaskFormData, Project } from '@/lib/types'
 import { formatDateInput } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import Image from 'next/image'
@@ -22,6 +22,8 @@ interface TaskFormModalProps {
   onClose: () => void
   onSubmit: (data: TaskFormData) => Promise<void>
   loading?: boolean
+  // When provided, a project picker is shown so the task can be filed under one.
+  projects?: Project[]
 }
 
 export default function TaskFormModal({
@@ -30,6 +32,7 @@ export default function TaskFormModal({
   onClose,
   onSubmit,
   loading,
+  projects,
 }: TaskFormModalProps) {
   const {
     register,
@@ -49,6 +52,7 @@ export default function TaskFormModal({
   const [imageUrl, setImageUrl] = useState<string | null>(task?.imageUrl ?? null)
   const [imageUploading, setImageUploading] = useState(false)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [projectId, setProjectId] = useState<string | null>(task?.projectId ?? null)
   const imageInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -61,6 +65,7 @@ export default function TaskFormModal({
       })
       setImageUrl(task.imageUrl ?? null)
       setImagePreview(null)
+      setProjectId(task.projectId ?? null)
     }
   }, [task, mode, reset])
 
@@ -111,7 +116,11 @@ export default function TaskFormModal({
   }
 
   const onFormSubmit = async (formData: Omit<TaskFormData, 'imageUrl'>) => {
-    await onSubmit({ ...formData, imageUrl })
+    await onSubmit({
+      ...formData,
+      imageUrl,
+      ...(projects ? { projectId } : {}),
+    })
   }
 
   const currentImage = imagePreview || imageUrl
@@ -185,6 +194,25 @@ export default function TaskFormModal({
               </select>
             </div>
           </div>
+
+          {/* Project picker (only when a project list is supplied) */}
+          {projects && (
+            <div>
+              <label className="block text-sm font-medium text-[#3D0026] dark:text-pink-200 mb-1.5">Project</label>
+              <select
+                value={projectId ?? ''}
+                onChange={(e) => setProjectId(e.target.value || null)}
+                className="input-base"
+              >
+                <option value="">📥 Inbox (no project)</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.icon} {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Image attachment */}
           <div>
