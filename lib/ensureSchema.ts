@@ -29,6 +29,17 @@ const STATEMENTS = [
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  // A pre-existing "Project" table (e.g. created by a partial manual
+  // migration) is skipped by CREATE TABLE IF NOT EXISTS, so patch in any
+  // column it might be missing.
+  `ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "userId" TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "name" TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "description" TEXT`,
+  `ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "color" TEXT NOT NULL DEFAULT '#E91E8C'`,
+  `ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "icon" TEXT NOT NULL DEFAULT '📁'`,
+  `ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "order" INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+  `ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
   `CREATE INDEX IF NOT EXISTS "Project_userId_idx" ON "Project"("userId")`,
   `ALTER TABLE "Task" ADD COLUMN IF NOT EXISTS "projectId" TEXT`,
   `CREATE INDEX IF NOT EXISTS "Task_projectId_idx" ON "Task"("projectId")`,
@@ -42,8 +53,14 @@ const STATEMENTS = [
 ]
 
 async function runStatements(client: { $executeRawUnsafe: (q: string) => Promise<unknown> }) {
+  // Each statement is independently best-effort so one failure (e.g. a 42P05
+  // prepared-statement clash on the pooled connection) doesn't abort the rest.
   for (const stmt of STATEMENTS) {
-    await client.$executeRawUnsafe(stmt)
+    try {
+      await client.$executeRawUnsafe(stmt)
+    } catch {
+      /* ignore and continue */
+    }
   }
 }
 
@@ -59,17 +76,11 @@ export function ensureProjectSchema(): Promise<void> {
         try {
           await runStatements(direct)
           return
-        } catch {
-          // Fall through to the pooled connection attempt below.
         } finally {
           await direct.$disconnect().catch(() => {})
         }
       }
-      try {
-        await runStatements(prisma)
-      } catch {
-        // Best-effort — the real query surfaces any genuine problem.
-      }
+      await runStatements(prisma)
     })()
   }
   return ensured

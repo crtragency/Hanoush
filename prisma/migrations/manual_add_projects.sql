@@ -16,6 +16,17 @@ CREATE TABLE IF NOT EXISTS "Project" (
   CONSTRAINT "Project_pkey" PRIMARY KEY ("id")
 );
 
+-- Patch any columns missing from a pre-existing partial "Project" table
+-- (CREATE TABLE IF NOT EXISTS skips the table entirely when it already exists).
+ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "userId" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "name" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "description" TEXT;
+ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "color" TEXT NOT NULL DEFAULT '#E91E8C';
+ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "icon" TEXT NOT NULL DEFAULT '📁';
+ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "order" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
 CREATE INDEX IF NOT EXISTS "Project_userId_idx" ON "Project" ("userId");
 CREATE INDEX IF NOT EXISTS "Project_userId_order_idx" ON "Project" ("userId", "order");
 
