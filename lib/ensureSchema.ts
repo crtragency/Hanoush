@@ -1,16 +1,20 @@
+import { PrismaClient } from '@prisma/client'
 import { prisma } from './prisma'
 
 /**
- * Self-healing schema bootstrap for the Projects feature.
+ * Best-effort schema bootstrap for the Projects feature.
  *
- * Instead of relying on a manual SQL migration being run against the *right*
- * database, we create the Project table + Task.projectId link on demand, using
- * the exact same connection the app runs its queries on. Every statement is
- * idempotent (IF NOT EXISTS), so this is safe to run repeatedly and will never
- * touch or drop existing data.
+ * Creates the Project table + Task.projectId link on demand so a fresh
+ * database gets the schema without a manual migration. DDL is executed over
+ * the DIRECT (non-pooled) connection when DIRECT_URL is available: Supabase's
+ * transaction pooler rejects Prisma's raw statements with 42P05 ("prepared
+ * statement already exists"), while the direct session connection does not.
  *
- * The work is memoised per warm serverless instance so it only actually hits
- * the database once, then becomes a no-op for the rest of that instance's life.
+ * Every statement is idempotent (IF NOT EXISTS) and this NEVER throws: any
+ * failure is swallowed so a bootstrap hiccup can't take down a page — the
+ * real Prisma query that follows surfaces any genuine problem.
+ *
+ * Memoised per warm serverless instance so it only runs once, then no-ops.
  */
 
 const STATEMENTS = [
@@ -37,19 +41,36 @@ const STATEMENTS = [
    END $$`,
 ]
 
+async function runStatements(client: { $executeRawUnsafe: (q: string) => Promise<unknown> }) {
+  for (const stmt of STATEMENTS) {
+    await client.$executeRawUnsafe(stmt)
+  }
+}
+
 let ensured: Promise<void> | null = null
 
 export function ensureProjectSchema(): Promise<void> {
   if (!ensured) {
     ensured = (async () => {
-      for (const stmt of STATEMENTS) {
-        await prisma.$executeRawUnsafe(stmt)
+      const directUrl = process.env.DIRECT_URL
+      if (directUrl) {
+        // Dedicated non-pooled client for DDL; closed right after.
+        const direct = new PrismaClient({ datasources: { db: { url: directUrl } } })
+        try {
+          await runStatements(direct)
+          return
+        } catch {
+          // Fall through to the pooled connection attempt below.
+        } finally {
+          await direct.$disconnect().catch(() => {})
+        }
       }
-    })().catch((err) => {
-      // Reset so a later request can retry (e.g. transient connection issues).
-      ensured = null
-      throw err
-    })
+      try {
+        await runStatements(prisma)
+      } catch {
+        // Best-effort — the real query surfaces any genuine problem.
+      }
+    })()
   }
   return ensured
 }
