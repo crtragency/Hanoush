@@ -174,12 +174,12 @@ export default function TaskList({
   if (filteredTasks.length === 0) {
     return (
       <div className="text-center py-14 animate-fade-in">
-        <div className="w-14 h-14 rounded-2xl bg-pink-50 flex items-center justify-center mx-auto mb-3">
+        <div className="w-14 h-14 rounded-2xl bg-pink-50 dark:bg-[#E91E8C]/15 flex items-center justify-center mx-auto mb-3">
           <span className="text-2xl">
             {filter === 'completed' ? '🎉' : filter === 'overdue' ? '✨' : '📝'}
           </span>
         </div>
-        <p className="font-playfair text-base font-semibold text-[#3D0026] mb-1">
+        <p className="font-playfair text-base font-semibold text-[#3D0026] dark:text-pink-50 mb-1">
           {searchQuery
             ? 'No tasks match your search'
             : filter === 'completed' ? 'No completed tasks yet'
@@ -188,7 +188,7 @@ export default function TaskList({
             : filter === 'week' ? 'No tasks this week'
             : 'No tasks yet'}
         </p>
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-gray-400 dark:text-pink-300/50">
           {!searchQuery && filter === 'all' && 'Add your first task to get started ✨'}
         </p>
       </div>
