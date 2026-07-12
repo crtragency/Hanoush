@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/authOptions'
 import { prisma } from '@/lib/prisma'
+import { ensureProjectSchema } from '@/lib/ensureSchema'
 import { z } from 'zod'
 import { isToday, isPast } from 'date-fns'
 
@@ -39,6 +40,7 @@ export async function GET(req: NextRequest) {
         : {}
 
   try {
+    await ensureProjectSchema()
     const tasks = await prisma.task.findMany({
       where: { userId: session.user.id, ...projectFilter },
       orderBy: [{ order: 'asc' }, { createdAt: 'desc' }],
@@ -92,6 +94,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    await ensureProjectSchema()
     const body = await req.json()
     const data = createSchema.parse(body)
 

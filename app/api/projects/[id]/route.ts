@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/authOptions'
 import { prisma } from '@/lib/prisma'
+import { ensureProjectSchema } from '@/lib/ensureSchema'
 import { z } from 'zod'
 
 const updateSchema = z.object({
@@ -21,6 +22,7 @@ export async function GET(
   }
 
   try {
+    await ensureProjectSchema()
     const project = await prisma.project.findFirst({
       where: { id: params.id, userId: session.user.id },
       include: { tasks: { select: { completed: true } } },
@@ -62,6 +64,7 @@ export async function PATCH(
   }
 
   try {
+    await ensureProjectSchema()
     const body = await req.json()
     const data = updateSchema.parse(body)
 
@@ -106,6 +109,7 @@ export async function DELETE(
   }
 
   try {
+    await ensureProjectSchema()
     const existing = await prisma.project.findFirst({
       where: { id: params.id, userId: session.user.id },
     })
