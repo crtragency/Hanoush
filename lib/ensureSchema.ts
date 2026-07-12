@@ -1,16 +1,17 @@
 import { prisma } from './prisma'
 
 /**
- * Self-healing schema bootstrap for the Projects feature.
+ * Best-effort schema bootstrap for the Projects feature.
  *
- * Instead of relying on a manual SQL migration being run against the *right*
- * database, we create the Project table + Task.projectId link on demand, using
- * the exact same connection the app runs its queries on. Every statement is
- * idempotent (IF NOT EXISTS), so this is safe to run repeatedly and will never
- * touch or drop existing data.
+ * Creates the Project table + Task.projectId link on demand using the app's
+ * own DB connection, so a fresh database gets the schema without a manual
+ * migration. Every statement is idempotent (IF NOT EXISTS) and this NEVER
+ * throws: if a statement fails (e.g. the object already exists, or a pooled
+ * connection rejects it), we ignore it and let the real query run. That way a
+ * bootstrap hiccup can never take down a page — the actual Prisma query below
+ * surfaces any genuine problem.
  *
- * The work is memoised per warm serverless instance so it only actually hits
- * the database once, then becomes a no-op for the rest of that instance's life.
+ * Memoised per warm serverless instance so it only runs once, then no-ops.
  */
 
 const STATEMENTS = [
@@ -43,13 +44,14 @@ export function ensureProjectSchema(): Promise<void> {
   if (!ensured) {
     ensured = (async () => {
       for (const stmt of STATEMENTS) {
-        await prisma.$executeRawUnsafe(stmt)
+        try {
+          await prisma.$executeRawUnsafe(stmt)
+        } catch {
+          // Best-effort — ignore. The object may already exist, or the pooled
+          // connection rejected the statement; the real query handles the rest.
+        }
       }
-    })().catch((err) => {
-      // Reset so a later request can retry (e.g. transient connection issues).
-      ensured = null
-      throw err
-    })
+    })()
   }
   return ensured
 }
